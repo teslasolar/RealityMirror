@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bio Dynamics Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #060610;
+      color: #ccc;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      padding: 8px;
+      overflow-y: auto;
+      min-height: 100vh;
+    }
+    header {
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a1a2a;
+      margin-bottom: 8px;
+    }
+    header h1 { font-size: 12px; color: #c084fc; }
+    header .tag {
+      font-size: 8px; color: #666;
+      background: #111; padding: 1px 6px; border-radius: 8px;
+      border: 1px solid #222;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .panel {
+      background: #0a0a16;
+      border: 1px solid #1a1a2a;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .panel h2 {
+      font-size: 9px; color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .panel.wide { grid-column: 1 / -1; }
+
+    /* Kappa display */
+    .kappa-display {
+      text-align: center;
+      padding: 12px 0;
+    }
+    .kappa-display .big {
+      font-size: 32px; font-weight: bold;
+      background: linear-gradient(135deg, #0ff, #c084fc, #ffd700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .kappa-display .sub { color: #555; margin-top: 2px; font-size: 9px; }
+    .kappa-display .phase {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 9px;
+      margin-top: 4px;
+    }
+
+    /* Bar meters */
+    .meter { margin: 3px 0; display: flex; align-items: center; gap: 4px; }
+    .meter .lbl { width: 70px; text-align: right; color: #666; font-size: 9px; }
+    .meter .track { flex: 1; height: 6px; background: #111; border-radius: 3px; overflow: hidden; }
+    .meter .fill { height: 100%; border-radius: 3px; transition: width 0.4s ease, background 0.4s; }
+    .meter .num { width: 32px; color: #555; font-size: 9px; }
+
+    /* Sparkline canvas */
+    .sparkline { width: 100%; height: 40px; }
+
+    /* Sub-agents table */
+    .task-row {
+      display: flex; gap: 6px; align-items: center;
+      padding: 2px 0;
+      border-bottom: 1px solid #0a0a14;
+    }
+    .task-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .task-dot.done { background: #2a6a2a; }
+    .task-dot.running { background: #aa8a2a; animation: blink 1s infinite; }
+    .task-dot.queued { background: #333; }
+    .task-dot.error { background: #6a2a2a; }
+    @keyframes blink { 50% { opacity: 0.3; } }
+    .task-name { flex: 1; color: #888; }
+    .task-dur { color: #444; }
+
+    /* Neural balance viz */
+    .balance-bar {
+      height: 8px;
+      background: linear-gradient(to right, #2266ff, #222, #ff4422);
+      border-radius: 4px;
+      position: relative;
+      margin: 6px 0;
+    }
+    .balance-bar .marker {
+      position: absolute;
+      top: -2px;
+      width: 4px; height: 12px;
+      background: #fff;
+      border-radius: 2px;
+      transition: left 0.3s ease;
+    }
+    .balance-labels {
+      display: flex; justify-content: space-between;
+      font-size: 8px; color: #444;
+    }
+
+    /* Resonance ring */
+    .resonance-ring {
+      width: 60px; height: 60px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BIO DYNAMICS MONITOR</h1>
+    <span class="tag">Konomi Systems</span>
+    <span class="tag">Biophysical</span>
+    <span class="tag" id="tick-counter">tick: 0</span>
+  </header>
+
+  <div class="grid">
+    <!-- Kappa main -->
+    <div class="panel wide">
+      <div class="kappa-display">
+        <div class="big" id="k-val">0.6180</div>
+        <div class="sub">kappa_biological = H(state) / H_max</div>
+        <div class="phase" id="k-phase" style="background:#2a3a4a;color:#8ac">baseline</div>
+      </div>
+      <canvas class="sparkline" id="k-graph"></canvas>
+    </div>
+
+    <!-- Sensory -->
+    <div class="panel">
+      <h2>Sensory Channels</h2>
+      <div id="s-meters"></div>
+    </div>
+
+    <!-- Hormonal -->
+    <div class="panel">
+      <h2>Hormonal Levels</h2>
+      <div id="h-meters"></div>
+    </div>
+
+    <!-- Neural -->
+    <div class="panel">
+      <h2>Neural Balance</h2>
+      <div id="n-meters"></div>
+      <div class="balance-bar">
+        <div class="marker" id="n-marker" style="left:50%"></div>
+      </div>
+      <div class="balance-labels">
+        <span>Parasympathetic</span>
+        <span>Sympathetic</span>
+      </div>
+    </div>
+
+    <!-- Resonance -->
+    <div class="panel" style="text-align:center">
+      <h2>Golden Resonance</h2>
+      <canvas class="resonance-ring" id="res-ring" width="120" height="120"></canvas>
+      <div id="res-val" style="color:#ffd700;margin-top:4px">R: 0.000</div>
+      <div style="color:#444;font-size:8px">Target: 1/phi = 0.6180</div>
+    </div>
+
+    <!-- Sub-agents -->
+    <div class="panel wide">
+      <h2>Sub-Agent Tasks</h2>
+      <div id="tasks"></div>
+      <div id="task-summary" style="color:#444;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Standalone bio-monitor: simulates user/scene or receives postMessage from parent
+    const PHI = (1 + Math.sqrt(5)) / 2;
+    const INV_PHI = 1 / PHI;
+
+    class HumanSystem {
+      constructor() {
+        this.state = {
+          S: { visual: 0.5, auditory: 0.4, tactile: 0.6, olfactory: 0.3, gustatory: 0.2 },
+          H: { dopamine: 0.5, oxytocin: 0.4, serotonin: 0.6, cortisol: 0.3, endorphins: 0.4, testosterone: 0.5, estrogen: 0.5 },
+          N: { sympathetic: 0.4, parasympathetic: 0.6, kappa_neural: 0.5 }
+        };
+        this.kappa = INV_PHI;
+        this.history = [];
+        this.phase = 'baseline';
+        this.resonance = 0;
+        this.tick = 0;
+      }
+
+      entropy(vals) {
+        const sum = vals.reduce((a, b) => a + b, 0);
+        if (sum === 0) return 0;
+        let H = 0;
+        vals.forEach(v => { const p = v / sum; if (p > 0) H -= p * Math.log2(p); });
+        return H / Math.log2(vals.length);
+      }
+
+      calculateKappa() {
+        const se = this.entropy(Object.values(this.state.S));
+        const he = this.entropy(Object.values(this.state.H));
+        const nb = this.state.N.parasympathetic / (this.state.N.sympathetic + this.state.N.parasympathetic);
+        this.kappa = se * 0.3 + he * 0.5 + nb * 0.2;
+        this.kappa += (INV_PHI - this.kappa) * 0.05;
+        this.history.push(this.kappa);
+        if (this.history.length > 200) this.history.shift();
+        return this.kappa;
+      }
+
+      simulate() {
+        this.tick++;
+        const t = this.tick * 0.01;
+
+        // Simulate organic drift in all channels
+        Object.keys(this.state.S).forEach(k => {
+          this.state.S[k] = Math.max(0.05, Math.min(0.95,
+            this.state.S[k] + (Math.sin(t * 1.3 + k.length) * 0.01) + (Math.random() - 0.5) * 0.02
+          ));
+        });
+        Object.keys(this.state.H).forEach(k => {
+          this.state.H[k] = Math.max(0.05, Math.min(0.95,
+            this.state.H[k] + (Math.cos(t * 0.7 + k.length * 0.5) * 0.008) + (Math.random() - 0.5) * 0.015
+          ));
+        });
+
+        // Neural oscillation
+        const wave = Math.sin(t * 0.3) * 0.15;
+        this.state.N.sympathetic = Math.max(0.15, Math.min(0.85, 0.4 + wave + (Math.random() - 0.5) * 0.02));
+        this.state.N.parasympathetic = 1 - this.state.N.sympathetic;
+
+        // Mouse interaction boost (from user tracking)
+        if (this._mouseActive) {
+          this.state.N.sympathetic = Math.min(0.8, this.state.N.sympathetic + 0.02);
+          this.state.N.parasympathetic = 1 - this.state.N.sympathetic;
+          this.state.H.dopamine = Math.min(0.9, this.state.H.dopamine + 0.01);
+        }
+
+        this.calculateKappa();
+        this.state.N.kappa_neural = this.kappa;
+
+        if (this.kappa > 0.7) this.phase = 'peak';
+        else if (this.kappa > 0.55) this.phase = 'flow';
+        else if (this.kappa > 0.4) this.phase = 'baseline';
+        else this.phase = 'rest';
+
+        this.resonance = 1 - Math.abs(this.kappa - INV_PHI) * PHI;
+      }
+    }
+
+    class SubAgentMonitor {
+      constructor() { this.tasks = []; this.completed = []; this.running = null; }
+      enqueue(task) {
+        this.tasks.push({ id: Date.now(), name: task.name, fn: task.fn, status: 'queued', result: null });
+      }
+      async tick() {
+        if (this.running || this.tasks.length === 0) return;
+        const t = this.tasks.shift();
+        t.status = 'running'; t.started = Date.now();
+        this.running = t;
+        try { t.result = await t.fn(); t.status = 'done'; }
+        catch (e) { t.status = 'error'; t.result = e.message; }
+        t.duration = Date.now() - t.started;
+        this.completed.push(t);
+        if (this.completed.length > 50) this.completed.shift();
+        this.running = null;
+      }
+    }
+
+    const bio = new HumanSystem();
+    const monitor = new SubAgentMonitor();
+
+    // User tracking
+    let mouseActive = false, lastMove = 0;
+    document.addEventListener('mousemove', () => { mouseActive = true; lastMove = Date.now(); });
+    setInterval(() => { if (Date.now() - lastMove > 2000) mouseActive = false; bio._mouseActive = mouseActive; }, 500);
+
+    // Accept external metrics via postMessage from parent/sibling iframes
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'bio-metrics') {
+        const m = e.data.payload;
+        if (m.sensory) Object.assign(bio.state.S, m.sensory);
+        if (m.hormonal) Object.assign(bio.state.H, m.hormonal);
+        if (m.neural) Object.assign(bio.state.N, m.neural);
+      }
+    });
+
+    // Rendering
+    const phaseStyles = {
+      peak: { bg: '#3a2a1a', color: '#ffa' },
+      flow: { bg: '#1a3a2a', color: '#afa' },
+      baseline: { bg: '#2a3a4a', color: '#8ac' },
+      rest: { bg: '#2a2a3a', color: '#aaf' }
+    };
+
+    function renderMeters(containerId, data, baseHue) {
+      const el = document.getElementById(containerId);
+      let html = '';
+      Object.entries(data).forEach(([key, val], idx) => {
+        const pct = (Math.min(1, Math.max(0, val)) * 100).toFixed(0);
+        const hue = baseHue + idx * 18;
+        html += `<div class="meter">
+          <span class="lbl">${key}</span>
+          <div class="track"><div class="fill" style="width:${pct}%;background:hsl(${hue},65%,50%)"></div></div>
+          <span class="num">${val.toFixed(3)}</span>
+        </div>`;
+      });
+      el.innerHTML = html;
+    }
+
+    function renderGraph(canvasId, history) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = canvas.offsetHeight * 2;
+      ctx.scale(2, 2);
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid
+      ctx.strokeStyle = '#1a1a2a';
+      ctx.lineWidth = 0.5;
+      for (let y = 0; y < h; y += 10) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+      // Golden ref
+      const gy = h - INV_PHI * h;
+      ctx.strokeStyle = '#ffd70022';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (history.length < 2) return;
+
+      // Fill under curve
+      ctx.fillStyle = 'rgba(0,255,255,0.05)';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      history.forEach((v, i) => {
+        ctx.lineTo((i / (history.length - 1)) * w, h - v * h);
+      });
+      ctx.lineTo(w, h);
+      ctx.fill();
+
+      // Line
+      ctx.strokeStyle = '#0ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      history.forEach((v, i) => {
+        const x = (i / (history.length - 1)) * w, y = h - v * h;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function renderResonanceRing(resonance) {
+      const canvas = document.getElementById('res-ring');
+      const ctx = canvas.getContext('2d');
+      const w = 60, h = 60;
+      ctx.clearRect(0, 0, 120, 120);
+      ctx.save();
+
+      // Outer ring
+      const r = 25;
+      ctx.beginPath();
+      ctx.arc(w, h, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Resonance arc
+      const angle = resonance * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(w, h, r, -Math.PI / 2, -Math.PI / 2 + angle);
+      const hue = resonance > 0.8 ? 50 : resonance > 0.5 ? 170 : 270;
+      ctx.strokeStyle = `hsl(${hue}, 80%, 55%)`;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Center value
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText((resonance * 100).toFixed(0) + '%', w, h + 4);
+
+      ctx.restore();
+    }
+
+    function renderTasks() {
+      const el = document.getElementById('tasks');
+      let html = '';
+      if (monitor.running) {
+        html += `<div class="task-row"><span class="task-dot running"></span><span class="task-name">${monitor.running.name}</span><span class="task-dur">...</span></div>`;
+      }
+      monitor.completed.slice(-6).reverse().forEach(t => {
+        html += `<div class="task-row"><span class="task-dot ${t.status}"></span><span class="task-name">${t.name}</span><span class="task-dur">${t.duration}ms</span></div>`;
+      });
+      el.innerHTML = html;
+      document.getElementById('task-summary').textContent =
+        `Queued: ${monitor.tasks.length} | Completed: ${monitor.completed.length}`;
+    }
+
+    // Schedule background sub-agent tasks
+    function scheduleAgentTasks() {
+      const tick = bio.tick;
+      if (tick % 30 === 0) monitor.enqueue({ name: 'sensory_scan', fn: () => ({ ...bio.state.S }) });
+      if (tick % 45 === 0) monitor.enqueue({ name: 'hormonal_audit', fn: () => {
+        const h = bio.state.H;
+        const stress = h.cortisol / (h.serotonin + h.endorphins + 0.01);
+        return { stress_ratio: stress, dominant: Object.entries(h).sort((a,b) => b[1]-a[1])[0][0] };
+      }});
+      if (tick % 60 === 0) monitor.enqueue({ name: 'neural_check', fn: () => ({
+        balance: bio.state.N.parasympathetic / (bio.state.N.sympathetic + bio.state.N.parasympathetic),
+        kappa: bio.kappa
+      })});
+      if (tick % 80 === 0) monitor.enqueue({ name: 'phase_transition', fn: () => ({
+        phase: bio.phase,
+        resonance: bio.resonance,
+        convergence: Math.abs(bio.kappa - INV_PHI)
+      })});
+      if (tick % 100 === 0) monitor.enqueue({ name: 'user_state_infer', fn: () => ({
+        active: mouseActive,
+        attention: bio.state.S.visual,
+        arousal: bio.state.N.sympathetic
+      })});
+    }
+
+    // Main loop
+    function update() {
+      bio.simulate();
+      scheduleAgentTasks();
+      monitor.tick();
+
+      // Update display
+      document.getElementById('k-val').textContent = bio.kappa.toFixed(4);
+      document.getElementById('tick-counter').textContent = `tick: ${bio.tick}`;
+
+      const ps = phaseStyles[bio.phase] || phaseStyles.baseline;
+      const badge = document.getElementById('k-phase');
+      badge.style.background = ps.bg;
+      badge.style.color = ps.color;
+      badge.textContent = `${bio.phase} | R: ${bio.resonance.toFixed(3)}`;
+
+      document.getElementById('res-val').textContent = `R: ${bio.resonance.toFixed(4)}`;
+
+      renderMeters('s-meters', bio.state.S, 180);
+      renderMeters('h-meters', bio.state.H, 280);
+      renderMeters('n-meters', bio.state.N, 120);
+      renderGraph('k-graph', bio.history);
+      renderResonanceRing(Math.max(0, bio.resonance));
+
+      const nBal = bio.state.N.sympathetic / (bio.state.N.sympathetic + bio.state.N.parasympathetic);
+      document.getElementById('n-marker').style.left = (nBal * 100) + '%';
+
+      renderTasks();
+    }
+
+    setInterval(update, 100);
+  </script>
+</body>
+</html>

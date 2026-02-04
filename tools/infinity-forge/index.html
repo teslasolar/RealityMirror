@@ -3,198 +3,447 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infinity Forge</title>
+  <title>Infinity Forge v0.2</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; font-family: 'Courier New', monospace; overflow: hidden; }
+    canvas { display: block; }
+
     #ui {
       position: fixed; top: 8px; left: 8px; color: #0ff;
-      background: rgba(0,10,20,0.85); padding: 8px; border-radius: 6px;
-      z-index: 100; font-size: 9px; border: 1px solid #0ff3;
-      backdrop-filter: blur(8px); max-width: 180px;
+      background: rgba(0,6,12,0.88); padding: 8px 10px; border-radius: 6px;
+      z-index: 100; font-size: 9px; border: 1px solid #0ff2;
+      backdrop-filter: blur(10px); max-width: 185px;
     }
     #ui h1 { font-size: 11px; color: #ffd700; margin-bottom: 4px; }
-    #gen { color: #0f0; font-size: 8px; max-height: 80px; overflow: hidden; }
+    #gen { color: #0f0; font-size: 8px; max-height: 70px; overflow: hidden; margin-top: 4px; }
+
+    /* Bio-monitor HUD - right panel */
+    #bio-hud {
+      position: fixed; top: 8px; right: 8px;
+      background: rgba(0,6,12,0.88); padding: 8px 10px; border-radius: 6px;
+      z-index: 100; font-size: 9px; color: #e0e0e0;
+      border: 1px solid #4a2a6a44; backdrop-filter: blur(10px);
+      width: 200px;
+    }
+    #bio-hud h2 { font-size: 10px; color: #c084fc; margin-bottom: 6px; }
+    .bio-section { margin-bottom: 6px; }
+    .bio-section h3 { font-size: 8px; color: #666; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 1px; }
+    .bio-bar {
+      display: flex; align-items: center; gap: 4px; margin: 1px 0;
+    }
+    .bio-bar .label { width: 55px; color: #888; font-size: 8px; text-align: right; }
+    .bio-bar .track {
+      flex: 1; height: 4px; background: #111; border-radius: 2px; overflow: hidden;
+    }
+    .bio-bar .fill {
+      height: 100%; border-radius: 2px; transition: width 0.3s ease;
+    }
+    .bio-bar .val { width: 28px; font-size: 8px; color: #555; }
+
+    .kappa-main {
+      text-align: center; padding: 6px 0; margin: 4px 0;
+      border-top: 1px solid #222; border-bottom: 1px solid #222;
+    }
+    .kappa-main .value {
+      font-size: 20px; font-weight: bold;
+      background: linear-gradient(135deg, #0ff, #c084fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .kappa-main .phase-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 8px;
+      font-size: 8px; margin-top: 2px;
+    }
+
+    #kappa-graph {
+      width: 100%; height: 30px; margin-top: 4px;
+    }
+
+    /* Sub-agent tasks */
+    #agent-tasks {
+      position: fixed; bottom: 8px; right: 8px;
+      background: rgba(0,6,12,0.88); padding: 6px 8px; border-radius: 6px;
+      z-index: 100; font-size: 8px; color: #888;
+      border: 1px solid #2a2a2a; backdrop-filter: blur(10px);
+      width: 200px; max-height: 100px; overflow: hidden;
+    }
+    #agent-tasks h3 { font-size: 9px; color: #4a8a4a; margin-bottom: 3px; }
+    .task-line { display: flex; gap: 4px; margin: 1px 0; }
+    .task-line .dot {
+      width: 5px; height: 5px; border-radius: 50%; margin-top: 1px; flex-shrink: 0;
+    }
+    .task-line .dot.done { background: #2a6a2a; }
+    .task-line .dot.running { background: #6a6a2a; animation: pulse 1s infinite; }
+    .task-line .dot.queued { background: #333; }
+    @keyframes pulse { 50% { opacity: 0.4; } }
+
     #lyric {
       position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
-      color: #ffd700; background: rgba(0,10,20,0.85); padding: 5px 14px;
+      color: #ffd700; background: rgba(0,6,12,0.88); padding: 5px 16px;
       border-radius: 14px; z-index: 100; font-size: 10px;
-      border: 1px solid #ffd7004; backdrop-filter: blur(8px);
+      border: 1px solid #ffd70022; backdrop-filter: blur(10px);
     }
-    canvas { display: block; }
   </style>
 </head>
 <body>
   <div id="ui">
-    <h1>🪞 INFINITY FORGE</h1>
+    <h1>INFINITY FORGE v0.2</h1>
     <div>kappa=1/phi | Trits:{-1,0,1}</div>
     <div id="stats">Booting...</div>
     <div id="gen"></div>
   </div>
+
+  <div id="bio-hud">
+    <h2>BIO DYNAMICS</h2>
+    <div class="kappa-main">
+      <div class="value" id="kappa-val">0.6180</div>
+      <div>kappa_biological</div>
+      <div class="phase-badge" id="phase-badge" style="background:#2a4a6a;color:#8ac">baseline</div>
+    </div>
+    <canvas id="kappa-graph"></canvas>
+
+    <div class="bio-section" id="sensory-bars"></div>
+    <div class="bio-section" id="hormonal-bars"></div>
+    <div class="bio-section" id="neural-bars"></div>
+  </div>
+
+  <div id="agent-tasks">
+    <h3>SUB-AGENTS</h3>
+    <div id="task-list"></div>
+  </div>
+
   <div id="lyric">Forging geometries...</div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script>
-const PHI = (1 + Math.sqrt(5)) / 2, INV_PHI = 1 / PHI, TAU = Math.PI * 2;
+  <script type="module">
+    import { GeometryAgent, PHI, INV_PHI, TAU } from './js/geometry.js';
+    import { createScene, animateCamera, animateLights } from './js/scene.js';
+    import { createMirrors, animateMirrors } from './js/mirrors.js';
+    import { createParticles, animateParticles } from './js/particles.js';
+    import { HumanSystem, SubAgentMonitor } from './js/bio-monitor.js';
 
-class GeometryRooster {
-  constructor(id) {
-    this.id = id;
-    this.kappa = INV_PHI + (Math.random() - 0.5) * 0.2;
-    this.phase = Math.random() * TAU;
-    this.freq = 0.5 + Math.random() * 2;
-    this.timeline = [-1, 0, 1][Math.floor(Math.random() * 3)];
-    this.task = ['spiral','wave','fractal','torus','crystal'][Math.floor(Math.random() * 5)];
-    this.output = [];
-  }
-  entropy() {
-    return -this.kappa * Math.log2(this.kappa + 1e-10) * Math.exp(-Math.abs(this.kappa - INV_PHI) * PHI);
-  }
-  generate(time) {
-    const pts = [], e = this.entropy(), k = this.kappa;
-    const p = this.phase + time * 0.01 * this.freq;
-    switch(this.task) {
-      case 'spiral':
-        for (let t=0;t<50;t++) { let r=Math.pow(PHI,t*0.1*k),a=t*k*0.5+p; pts.push({x:Math.cos(a)*r*0.3,y:t*0.1-2.5+Math.sin(p+t*0.2)*e,z:Math.sin(a)*r*0.3}); } break;
-      case 'wave':
-        for (let i=0;i<60;i++) { let u=i/60*TAU; pts.push({x:Math.cos(u*3+p)*(2+Math.sin(u*5+p*2)*k),y:Math.sin(u*7+p)*e*2,z:Math.sin(u*3+p)*(2+Math.cos(u*5+p*2)*k)}); } break;
-      case 'fractal':
-        let fx=0,fy=0,fz=0;
-        for (let i=0;i<80;i++) { let r=Math.random(); if(r<0.33){fx=fx*k;fy=fy*k+1.6;fz=fz*k}else if(r<0.66){fx=k*fx-k*fy+p*0.1;fy=k*fx+k*fy;fz=Math.sin(i*0.1+p)*e}else{fx=-k*fx+k*fy;fy=k*fx+k*fy+0.44;fz=Math.cos(i*0.1+p)*e} pts.push({x:fx*2,y:fy-5,z:fz*2}); } break;
-      case 'torus':
-        for (let u=0;u<40;u++) { let uu=u/40*TAU+p,R=2+Math.sin(uu*3+p)*k,r=0.5+Math.sin(uu*7+p*2)*e*0.5; for(let v=0;v<3;v++){let vv=v/3*TAU+p*2; pts.push({x:(R+r*Math.cos(vv))*Math.cos(uu),y:r*Math.sin(vv),z:(R+r*Math.cos(vv))*Math.sin(uu)});} } break;
-      case 'crystal':
-        [[1,1,1],[-1,1,1],[1,-1,1],[1,1,-1],[-1,-1,1],[-1,1,-1],[1,-1,-1],[-1,-1,-1]].forEach((f,i)=>{let s=1.5+Math.sin(p+i)*k*0.5;for(let j=0;j<10;j++){let t=j/10;pts.push({x:f[0]*s*(1-t+Math.sin(p*2+j)*e*0.2),y:f[1]*s*(1-t+Math.cos(p*2+j)*e*0.2),z:f[2]*s*(1-t+Math.sin(p*3+j)*e*0.2)});}}); break;
+    // --- Init ---
+    const { scene, camera, renderer, lights } = createScene();
+    const mirrorData = createMirrors(scene);
+    const particleData = createParticles(scene);
+
+    // Geometry agents - more of them, with new shapes
+    const agents = Array.from({ length: 10 }, (_, i) => new GeometryAgent(i));
+    const gGroups = [];
+    const gMats = [];
+
+    agents.forEach((r, i) => {
+      const g = new THREE.Group();
+      gGroups.push(g);
+      scene.add(g);
+      gMats.push({
+        line: new THREE.LineBasicMaterial({
+          color: new THREE.Color().setHSL(i / 10, 0.85, 0.55),
+          transparent: true, opacity: 0.75
+        }),
+        points: new THREE.PointsMaterial({
+          color: new THREE.Color().setHSL(i / 10, 1, 0.65),
+          size: 0.07, transparent: true, opacity: 0.85,
+          blending: THREE.AdditiveBlending, depthWrite: false
+        })
+      });
+    });
+
+    // --- Bio systems ---
+    const bioSystem = new HumanSystem();
+    const subAgents = new SubAgentMonitor();
+
+    // User tracking
+    let mouseX = 0, mouseY = 0, lastMouseX = 0, lastMouseY = 0;
+    let mouseVelocity = 0, lastInteraction = Date.now(), sessionStart = Date.now();
+    let interacting = false;
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX; mouseY = e.clientY;
+      lastInteraction = Date.now();
+      interacting = true;
+    });
+    document.addEventListener('click', () => { lastInteraction = Date.now(); interacting = true; });
+    document.addEventListener('wheel', () => { lastInteraction = Date.now(); interacting = true; });
+
+    // --- HUD rendering ---
+    function renderBars(containerId, title, data, colorHue) {
+      const el = document.getElementById(containerId);
+      let html = `<h3>${title}</h3>`;
+      Object.entries(data).forEach(([key, val]) => {
+        const pct = (Math.min(1, Math.max(0, val)) * 100).toFixed(0);
+        const hue = colorHue + (Object.keys(data).indexOf(key) * 15);
+        html += `<div class="bio-bar">
+          <span class="label">${key}</span>
+          <div class="track"><div class="fill" style="width:${pct}%;background:hsl(${hue},70%,50%)"></div></div>
+          <span class="val">${val.toFixed(2)}</span>
+        </div>`;
+      });
+      el.innerHTML = html;
     }
-    this.output = pts;
-    if (Math.random()<0.05) this.kappa += (INV_PHI-this.kappa)*0.1;
-    return pts;
-  }
-}
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000508);
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 20);
-const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-document.body.appendChild(renderer.domElement);
+    function renderKappaGraph(history) {
+      const canvas = document.getElementById('kappa-graph');
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = canvas.offsetHeight * 2;
+      ctx.scale(2, 2);
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
 
-const mirrorGroup = new THREE.Group();
-scene.add(mirrorGroup);
-const cubeRT = new THREE.WebGLCubeRenderTarget(256);
-const cubeCam = new THREE.CubeCamera(0.1, 100, cubeRT);
-scene.add(cubeCam);
+      ctx.clearRect(0, 0, w, h);
 
-for (let i=0;i<6;i++) {
-  let a=i/6*TAU;
-  const geo=new THREE.PlaneGeometry(30,30);
-  const mat=new THREE.MeshStandardMaterial({color:0x111122,metalness:0.95,roughness:0.05,envMap:cubeRT.texture,side:THREE.DoubleSide});
-  const m=new THREE.Mesh(geo,mat);
-  m.rotation.set(0, a+Math.PI/2, 0);
-  m.position.set(Math.cos(a)*12, 0, Math.sin(a)*12);
-  mirrorGroup.add(m);
-}
-[{r:{x:Math.PI/2,y:0,z:0},p:{x:0,y:10,z:0}},{r:{x:-Math.PI/2,y:0,z:0},p:{x:0,y:-10,z:0}}].forEach(d=>{
-  const geo=new THREE.PlaneGeometry(30,30);
-  const mat=new THREE.MeshStandardMaterial({color:0x111122,metalness:0.95,roughness:0.05,envMap:cubeRT.texture,side:THREE.DoubleSide});
-  const m=new THREE.Mesh(geo,mat);m.rotation.set(d.r.x,d.r.y,d.r.z);m.position.set(d.p.x,d.p.y,d.p.z);mirrorGroup.add(m);
-});
+      // Golden ratio reference line
+      const goldenY = h - (INV_PHI * h);
+      ctx.strokeStyle = '#ffd70033';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(0, goldenY);
+      ctx.lineTo(w, goldenY);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
-scene.add(new THREE.AmbientLight(0x404060, 0.3));
-const lights = [];
-[0xff0066,0x00ffff,0xffff00,0x00ff88,0xff00ff,0x0088ff].forEach((c,i) => {
-  const l = new THREE.PointLight(c, 1, 20);
-  let a = i/6*TAU;
-  l.position.set(Math.cos(a)*5, Math.sin(i)*3, Math.sin(a)*5);
-  lights.push(l); scene.add(l);
-});
+      // Kappa line
+      if (history.length < 2) return;
+      ctx.strokeStyle = '#0ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      history.forEach((v, i) => {
+        const x = (i / (history.length - 1)) * w;
+        const y = h - (v * h);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
 
-const roosters = Array.from({length:8}, (_,i) => new GeometryRooster(i));
-const gGroups = [], gMats = [];
-roosters.forEach((r,i) => {
-  const g = new THREE.Group();
-  gGroups.push(g); scene.add(g);
-  gMats.push({
-    line: new THREE.LineBasicMaterial({color:new THREE.Color().setHSL(i/8,0.9,0.6),transparent:true,opacity:0.8}),
-    points: new THREE.PointsMaterial({color:new THREE.Color().setHSL(i/8,1,0.7),size:0.08,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending})
-  });
-});
-
-const crystalGeo = new THREE.IcosahedronGeometry(1.5, 2);
-const crystalMat = new THREE.MeshPhysicalMaterial({color:0xffffff,metalness:0.1,roughness:0,transmission:0.9,thickness:1,envMap:cubeRT.texture,clearcoat:1});
-const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-scene.add(crystal);
-
-const pCount = 1500;
-const pGeo = new THREE.BufferGeometry();
-const pPos = new Float32Array(pCount*3), pCol = new Float32Array(pCount*3);
-for (let i=0;i<pCount;i++) {
-  let a=Math.random()*TAU, r=3+Math.random()*8;
-  pPos[i*3]=Math.cos(a)*r; pPos[i*3+1]=(Math.random()-0.5)*15; pPos[i*3+2]=Math.sin(a)*r;
-  let c=new THREE.Color().setHSL(Math.random(),0.8,0.6);
-  pCol[i*3]=c.r; pCol[i*3+1]=c.g; pCol[i*3+2]=c.b;
-}
-pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
-pGeo.setAttribute('color',new THREE.BufferAttribute(pCol,3));
-const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({size:0.03,vertexColors:true,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending}));
-scene.add(particles);
-
-const lyrics = [
-  "Forging infinity mirrors","kappa = 1/phi","Trinary geometries emerge",
-  "Past[-1] shapes present[0]","Future[+1] reflects eternal",
-  "Smooth contours, infinite depth","Mirrors within mirrors",
-  "The entropy flows golden","Reality bends here"
-];
-let lyricIdx = 0, time = 0;
-
-function updateGeo(t) {
-  roosters.forEach((r,i) => {
-    const pts = r.generate(t), g = gGroups[i], m = gMats[i];
-    while(g.children.length>0) g.remove(g.children[0]);
-    if (pts.length>2) {
-      const cv = pts.map(p=>new THREE.Vector3(p.x,p.y,p.z));
-      const curve = new THREE.CatmullRomCurve3(cv, r.task==='torus');
-      const sp = curve.getPoints(80);
-      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sp), m.line));
-      g.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(sp), m.points));
-      if (pts.length>5) try {
-        const tg = new THREE.TubeGeometry(curve,40,0.02+r.entropy()*0.03,6,r.task==='torus');
-        g.add(new THREE.Mesh(tg, new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(i/8+t*0.0001,0.9,0.5),metalness:0.7,roughness:0.3,emissive:new THREE.Color().setHSL(i/8,0.8,0.2),emissiveIntensity:0.5})));
-      } catch(e){}
+      // Glow effect
+      ctx.strokeStyle = '#0ff44';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      history.forEach((v, i) => {
+        const x = (i / (history.length - 1)) * w;
+        const y = h - (v * h);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
     }
-    g.rotation.y = t*0.001*(r.timeline+2)*0.5;
-    g.rotation.x = Math.sin(t*0.0005+i)*0.2;
-  });
-}
 
-function animate() {
-  requestAnimationFrame(animate);
-  time++;
-  const ca=time*0.0008, cr=15+Math.sin(time*0.001)*3;
-  camera.position.set(Math.sin(ca)*cr, Math.sin(time*0.0006)*5, Math.cos(ca)*cr);
-  camera.lookAt(0,0,0);
-  crystal.visible=false; cubeCam.position.copy(crystal.position); cubeCam.update(renderer,scene); crystal.visible=true;
-  crystal.rotation.x=time*0.002; crystal.rotation.y=time*0.003;
-  crystal.scale.setScalar(1+Math.sin(time*0.01)*0.1);
-  if (time%2===0) updateGeo(time);
-  lights.forEach((l,i)=>{let a=time*0.002+i/6*TAU;l.position.set(Math.cos(a)*(5+Math.sin(time*0.003+i)*2),Math.sin(time*0.004+i*0.5)*4,Math.sin(a)*(5+Math.cos(time*0.003+i)*2));l.intensity=0.8+Math.sin(time*0.01+i)*0.4;});
-  const pos=particles.geometry.attributes.position.array;
-  for(let i=0;i<pCount;i++){pos[i*3+1]+=Math.sin(time*0.01+i*0.01)*0.01;if(pos[i*3+1]>8)pos[i*3+1]=-8;}
-  particles.geometry.attributes.position.needsUpdate=true;
-  particles.rotation.y=time*0.0002;
-  mirrorGroup.rotation.y=time*0.0001;
-  if(time%30===0){
-    const ak=roosters.reduce((s,r)=>s+r.kappa,0)/roosters.length;
-    const ae=roosters.reduce((s,r)=>s+r.entropy(),0)/roosters.length;
-    document.getElementById('stats').innerHTML=`R:${roosters.length} | k:${ak.toFixed(3)} | H:${ae.toFixed(3)}`;
-    document.getElementById('gen').innerHTML=roosters.map(r=>`${r.id}:${r.task}[${r.timeline}]`).join(' | ');
-  }
-  if(time%200===0){lyricIdx=(lyricIdx+1)%lyrics.length;document.getElementById('lyric').textContent=lyrics[lyricIdx];}
-  renderer.render(scene, camera);
-}
-animate();
-window.addEventListener('resize', ()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+    function renderTasks(status) {
+      const el = document.getElementById('task-list');
+      let html = '';
+      if (status.running) {
+        html += `<div class="task-line"><span class="dot running"></span>${status.running}</div>`;
+      }
+      status.recent.reverse().slice(0, 4).forEach(t => {
+        const cls = t.status === 'done' ? 'done' : 'queued';
+        html += `<div class="task-line"><span class="dot ${cls}"></span>${t.name} <span style="color:#444">${t.duration}ms</span></div>`;
+      });
+      html += `<div style="color:#444;margin-top:2px">Q:${status.queued} | Done:${status.completed}</div>`;
+      el.innerHTML = html;
+    }
+
+    const phaseColors = {
+      peak: { bg: '#3a2a1a', color: '#ffa' },
+      flow: { bg: '#1a3a2a', color: '#afa' },
+      baseline: { bg: '#2a3a4a', color: '#8ac' },
+      rest: { bg: '#2a2a3a', color: '#aaf' }
+    };
+
+    function updateBioHUD(report) {
+      document.getElementById('kappa-val').textContent = report.kappa.toFixed(4);
+
+      const badge = document.getElementById('phase-badge');
+      const pc = phaseColors[report.phase] || phaseColors.baseline;
+      badge.style.background = pc.bg;
+      badge.style.color = pc.color;
+      badge.textContent = report.phase + ' | R:' + report.resonance.toFixed(2);
+
+      renderBars('sensory-bars', 'SENSORY', report.sensory, 180);
+      renderBars('hormonal-bars', 'HORMONAL', report.hormonal, 280);
+      renderBars('neural-bars', 'NEURAL', report.neural, 120);
+      renderKappaGraph(report.history);
+    }
+
+    // --- Geometry update ---
+    function updateGeometries(time) {
+      agents.forEach((r, i) => {
+        const pts = r.generate(time);
+        const g = gGroups[i];
+        const m = gMats[i];
+
+        while (g.children.length > 0) {
+          const child = g.children[0];
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+          g.remove(child);
+        }
+
+        if (pts.length > 2) {
+          const cv = pts.map(p => new THREE.Vector3(p.x, p.y, p.z));
+          const closed = r.task === 'torus' || r.task === 'mobius' || r.task === 'klein';
+          const curve = new THREE.CatmullRomCurve3(cv, closed);
+          const sp = curve.getPoints(100);
+
+          // Line
+          g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sp), m.line));
+
+          // Points sparkle
+          g.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(sp), m.points));
+
+          // Smooth tube contour
+          if (pts.length > 5) {
+            try {
+              const tubeRadius = 0.015 + r.entropy() * 0.035;
+              const tg = new THREE.TubeGeometry(curve, 60, tubeRadius, 8, closed);
+              const hue = i / 10 + time * 0.00008;
+              const tubeMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(hue, 0.85, 0.45),
+                metalness: 0.75,
+                roughness: 0.25,
+                emissive: new THREE.Color().setHSL(hue, 0.9, 0.12),
+                emissiveIntensity: 0.6 + r.energy * 0.4
+              });
+              g.add(new THREE.Mesh(tg, tubeMat));
+            } catch (e) { /* curve degenerate */ }
+          }
+        }
+
+        g.rotation.y = time * 0.0008 * (r.timeline + 2) * 0.5;
+        g.rotation.x = Math.sin(time * 0.0004 + i) * 0.25;
+      });
+    }
+
+    // --- Lyrics ---
+    const lyrics = [
+      "Forging infinity mirrors", "kappa = 1/phi", "Trinary geometries emerge",
+      "Past[-1] shapes present[0]", "Future[+1] reflects eternal",
+      "Smooth contours, infinite depth", "Mirrors within mirrors",
+      "The entropy flows golden", "Reality bends here",
+      "Mobius paths twist forever", "Klein bottles contain nothing",
+      "Helix spirals upward", "Resonance: approaching golden"
+    ];
+    let lyricIdx = 0;
+
+    // --- Sub-agent background tasks ---
+    function scheduleSubAgentTasks(time) {
+      if (time % 60 === 0) {
+        subAgents.enqueue({
+          name: 'kappa_convergence_check',
+          fn: () => {
+            const avg = agents.reduce((s, a) => s + a.kappa, 0) / agents.length;
+            return { avgKappa: avg, deviation: Math.abs(avg - INV_PHI) };
+          }
+        });
+      }
+      if (time % 90 === 0) {
+        subAgents.enqueue({
+          name: 'entropy_audit',
+          fn: () => {
+            const entropies = agents.map(a => ({ id: a.id, H: a.entropy(), task: a.task }));
+            return { min: Math.min(...entropies.map(e => e.H)), max: Math.max(...entropies.map(e => e.H)), agents: entropies };
+          }
+        });
+      }
+      if (time % 120 === 0) {
+        subAgents.enqueue({
+          name: 'bio_phase_analysis',
+          fn: () => {
+            const report = bioSystem.getReport();
+            return { phase: report.phase, resonance: report.resonance, kappa: report.kappa };
+          }
+        });
+      }
+      if (time % 150 === 0) {
+        subAgents.enqueue({
+          name: 'mutation_census',
+          fn: () => {
+            return agents.map(a => ({ id: a.id, task: a.task, mutations: a.mutations, age: a.age }));
+          }
+        });
+      }
+      if (time % 200 === 0) {
+        subAgents.enqueue({
+          name: 'user_engagement_score',
+          fn: () => {
+            const idle = Date.now() - lastInteraction;
+            return {
+              engaged: idle < 5000,
+              idleMs: idle,
+              sessionSec: Math.floor((Date.now() - sessionStart) / 1000),
+              mouseVelocity
+            };
+          }
+        });
+      }
+    }
+
+    // --- Main loop ---
+    let time = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      time++;
+
+      // Camera
+      animateCamera(camera, time);
+
+      // Mirrors + crystal
+      animateMirrors(mirrorData, time, renderer, scene);
+
+      // Lights
+      animateLights(lights, time);
+
+      // Geometry every 2 frames
+      if (time % 2 === 0) updateGeometries(time);
+
+      // Particles
+      animateParticles(particleData, time);
+
+      // Mouse velocity
+      mouseVelocity = Math.sqrt((mouseX - lastMouseX) ** 2 + (mouseY - lastMouseY) ** 2);
+      lastMouseX = mouseX;
+      lastMouseY = mouseY;
+      if (Date.now() - lastInteraction > 500) interacting = false;
+
+      // Sub-agent scheduling
+      scheduleSubAgentTasks(time);
+      subAgents.tick();
+
+      // Bio + HUD update every 15 frames
+      if (time % 15 === 0) {
+        const totalPoints = agents.reduce((s, a) => s + a.output.length, 0);
+        const avgEntropy = agents.reduce((s, a) => s + a.entropy(), 0) / agents.length;
+        const avgKappa = agents.reduce((s, a) => s + a.kappa, 0) / agents.length;
+        const avgEnergy = agents.reduce((s, a) => s + a.energy, 0) / agents.length;
+        const mutations = agents.reduce((s, a) => s + a.mutations, 0);
+        const uniqueTasks = new Set(agents.map(a => a.task)).size;
+
+        const report = bioSystem.update(
+          { totalPoints, avgEntropy, avgKappa, avgEnergy, mutations, taskDiversity: uniqueTasks },
+          { mouseVelocity, interacting, idleTime: Date.now() - lastInteraction, sessionDuration: Date.now() - sessionStart }
+        );
+
+        updateBioHUD(report);
+        renderTasks(subAgents.getStatus());
+
+        // Forge stats
+        document.getElementById('stats').innerHTML =
+          `A:${agents.length} | k:${avgKappa.toFixed(3)} | H:${avgEntropy.toFixed(3)} | pts:${totalPoints}`;
+        document.getElementById('gen').innerHTML =
+          agents.map(a => `${a.id}:${a.task}[${a.timeline}]`).join(' | ');
+      }
+
+      // Lyrics
+      if (time % 250 === 0) {
+        lyricIdx = (lyricIdx + 1) % lyrics.length;
+        document.getElementById('lyric').textContent = lyrics[lyricIdx];
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
   </script>
 </body>
 </html>

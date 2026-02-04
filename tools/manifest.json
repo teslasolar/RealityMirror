@@ -1,6 +1,6 @@
 {
   "enterprise": "RealityMirror",
-  "version": "0.1",
+  "version": "0.2",
   "isa95": {
     "level": "enterprise",
     "site": "tools"
@@ -18,13 +18,23 @@
     },
     {
       "id": "infinity-forge",
-      "name": "Infinity Forge",
-      "description": "Trinary geometry forge with infinity mirrors",
+      "name": "Infinity Forge v0.2",
+      "description": "Trinary geometry forge with infinity mirrors, bio dynamics HUD, and sub-agent monitoring",
       "path": "tools/infinity-forge/index.html",
       "icon": "🪞",
       "area": "visual",
-      "minWidth": "400px",
-      "minHeight": "400px"
+      "minWidth": "500px",
+      "minHeight": "500px"
+    },
+    {
+      "id": "bio-monitor",
+      "name": "Bio Dynamics Monitor",
+      "description": "Human Biological Dynamics Model - sensory, hormonal, neural kappa monitoring with sub-agent tasks",
+      "path": "tools/bio-monitor/index.html",
+      "icon": "🧬",
+      "area": "metrics",
+      "minWidth": "380px",
+      "minHeight": "500px"
     }
   ]
 }
