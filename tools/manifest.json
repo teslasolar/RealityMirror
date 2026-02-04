@@ -1,0 +1,30 @@
+{
+  "enterprise": "RealityMirror",
+  "version": "0.1",
+  "isa95": {
+    "level": "enterprise",
+    "site": "tools"
+  },
+  "tools": [
+    {
+      "id": "reality-comic",
+      "name": "Reality vs Me v0.1",
+      "description": "Argue with your stoner surfer devil Reality using local WebLLM inference",
+      "path": "tools/reality-comic/index.html",
+      "icon": "😈",
+      "area": "comic",
+      "minWidth": "400px",
+      "minHeight": "500px"
+    },
+    {
+      "id": "infinity-forge",
+      "name": "Infinity Forge",
+      "description": "Trinary geometry forge with infinity mirrors",
+      "path": "tools/infinity-forge/index.html",
+      "icon": "🪞",
+      "area": "visual",
+      "minWidth": "400px",
+      "minHeight": "400px"
+    }
+  ]
+}

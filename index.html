@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealityMirror - Enterprise Tool Forge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 100%);
+      border-bottom: 1px solid #333;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 16px;
+      color: #ffd700;
+    }
+    header .tag {
+      font-size: 10px;
+      color: #0ff;
+      background: rgba(0,255,255,0.1);
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid #0ff4;
+    }
+    header .status {
+      margin-left: auto;
+      font-size: 10px;
+      color: #0f0;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 0;
+      height: calc(100vh - 44px);
+    }
+    .tool-cell {
+      position: relative;
+      border: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
+    }
+    .tool-header {
+      background: #111118;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #222;
+      font-size: 11px;
+      cursor: move;
+    }
+    .tool-header .icon { font-size: 14px; }
+    .tool-header .name { color: #ccc; font-weight: bold; }
+    .tool-header .area {
+      margin-left: auto;
+      color: #666;
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+    .tool-header .maximize {
+      cursor: pointer;
+      color: #555;
+      font-size: 14px;
+      padding: 0 4px;
+    }
+    .tool-header .maximize:hover { color: #ffd700; }
+    .tool-cell iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #000;
+    }
+    .tool-cell.maximized {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1000;
+    }
+    #loading {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #0ff;
+      font-size: 12px;
+      text-align: center;
+    }
+    #loading .spinner {
+      font-size: 24px;
+      animation: spin 2s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RealityMirror</h1>
+    <span class="tag">ISA-95 / Enterprise</span>
+    <span class="tag">v0.1</span>
+    <span class="status" id="hdr-status">Loading manifest...</span>
+  </header>
+  <div id="grid"></div>
+  <div id="loading">
+    <div class="spinner">&#9881;</div>
+    <div>Discovering tools...</div>
+  </div>
+
+  <script>
+    const grid = document.getElementById('grid');
+    const loading = document.getElementById('loading');
+    const hdrStatus = document.getElementById('hdr-status');
+
+    async function boot() {
+      try {
+        const resp = await fetch('tools/manifest.json');
+        const manifest = await resp.json();
+
+        hdrStatus.textContent = `${manifest.enterprise} | ${manifest.tools.length} tools`;
+        loading.remove();
+
+        manifest.tools.forEach(tool => {
+          const cell = document.createElement('div');
+          cell.className = 'tool-cell';
+          cell.innerHTML = `
+            <div class="tool-header">
+              <span class="icon">${tool.icon}</span>
+              <span class="name">${tool.name}</span>
+              <span class="area">${tool.area}</span>
+              <span class="maximize" title="Toggle fullscreen">&#x26F6;</span>
+            </div>
+            <iframe src="${tool.path}" title="${tool.name}" loading="lazy"
+              sandbox="allow-scripts allow-same-origin allow-downloads"
+              allow="accelerometer; camera; microphone; webgpu"></iframe>
+          `;
+
+          // Maximize toggle
+          cell.querySelector('.maximize').addEventListener('click', () => {
+            cell.classList.toggle('maximized');
+          });
+
+          grid.appendChild(cell);
+        });
+
+      } catch (err) {
+        loading.innerHTML = `<div style="color:#f44">Failed to load manifest</div><div style="color:#666;font-size:10px">${err.message}</div>`;
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
