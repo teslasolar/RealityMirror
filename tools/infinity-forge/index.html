@@ -138,12 +138,12 @@
       scene.add(g);
       gMats.push({
         line: new THREE.LineBasicMaterial({
-          color: new THREE.Color().setHSL(i / 10, 0.85, 0.55),
-          transparent: true, opacity: 0.75
+          color: new THREE.Color().setHSL(i / 10, 1.0, 0.7),
+          transparent: true, opacity: 0.9, linewidth: 2
         }),
         points: new THREE.PointsMaterial({
-          color: new THREE.Color().setHSL(i / 10, 1, 0.65),
-          size: 0.07, transparent: true, opacity: 0.85,
+          color: new THREE.Color().setHSL(i / 10, 1, 0.75),
+          size: 0.12, transparent: true, opacity: 0.95,
           blending: THREE.AdditiveBlending, depthWrite: false
         })
       });
@@ -152,6 +152,67 @@
     // --- Bio systems ---
     const bioSystem = new HumanSystem();
     const subAgents = new SubAgentMonitor();
+
+    // Chat reactivity state
+    let chatEnergy = 0;        // 0-1, spikes on chat messages, decays over time
+    let chatHueShift = 0;      // hue offset from chat sentiment
+    let chatPulseScale = 1;    // crystal pulse multiplier
+    let lastChatText = '';
+    let chatMessageCount = 0;
+
+    // Sentiment keywords that affect the forge
+    const energyWords = ['do', 'start', 'now', 'today', 'progress', 'go', 'ship', 'build', 'push', 'commit', 'deploy', 'finish'];
+    const chillWords = ['chill', 'vibe', 'bro', 'dude', 'sprint', 'backlog', 'later', 'tomorrow', 'rest', 'relax', 'wait', 'maybe'];
+    const frustrationWords = ['hate', 'fine', 'blocking', 'never', 'ugh', 'stop', 'no', 'cant', 'stuck', 'broken'];
+
+    function analyzeChatSentiment(text, role) {
+      const lower = text.toLowerCase();
+      const words = lower.split(/\s+/);
+      let energy = 0.3; // base spike just for any message
+
+      const eHits = words.filter(w => energyWords.some(e => w.includes(e))).length;
+      const cHits = words.filter(w => chillWords.some(c => w.includes(c))).length;
+      const fHits = words.filter(w => frustrationWords.some(f => w.includes(f))).length;
+
+      // User messages = determination energy (blue/cyan shift)
+      // Reality messages = chill energy (warm/red shift)
+      if (role === 'me') {
+        energy += eHits * 0.15 + fHits * 0.1;
+        chatHueShift = -0.1 - eHits * 0.05; // toward blue
+      } else {
+        energy += cHits * 0.1;
+        chatHueShift = 0.08 + cHits * 0.03;  // toward warm
+      }
+
+      // Frustration = extra visual chaos
+      if (fHits > 0) energy += 0.2;
+
+      return Math.min(1, energy);
+    }
+
+    // Listen for chat messages from reality-comic via parent relay
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'chat-event') return;
+      const { role, text } = e.data;
+      lastChatText = text;
+      chatMessageCount++;
+
+      // Spike energy
+      chatEnergy = Math.min(1, chatEnergy + analyzeChatSentiment(text, role));
+      chatPulseScale = 1.5 + chatEnergy * 0.5;
+
+      // Show chat text in lyric bar
+      const prefix = role === 'me' ? 'ME: ' : 'REALITY: ';
+      document.getElementById('lyric').textContent = prefix + text.slice(0, 60);
+
+      // Trigger agent mutations on high-energy messages
+      if (chatEnergy > 0.6) {
+        const victim = agents[Math.floor(Math.random() * agents.length)];
+        victim.task = ['spiral','wave','fractal','torus','crystal','helix','mobius','klein'][Math.floor(Math.random() * 8)];
+        victim.mutations++;
+        victim.energy = 1.0;
+      }
+    });
 
     // User tracking
     let mouseX = 0, mouseY = 0, lastMouseX = 0, lastMouseY = 0;
@@ -294,15 +355,15 @@
           // Smooth tube contour
           if (pts.length > 5) {
             try {
-              const tubeRadius = 0.015 + r.entropy() * 0.035;
+              const tubeRadius = 0.04 + r.entropy() * 0.06;
               const tg = new THREE.TubeGeometry(curve, 60, tubeRadius, 8, closed);
               const hue = i / 10 + time * 0.00008;
               const tubeMat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color().setHSL(hue, 0.85, 0.45),
-                metalness: 0.75,
-                roughness: 0.25,
-                emissive: new THREE.Color().setHSL(hue, 0.9, 0.12),
-                emissiveIntensity: 0.6 + r.energy * 0.4
+                color: new THREE.Color().setHSL(hue, 0.9, 0.55),
+                metalness: 0.6,
+                roughness: 0.3,
+                emissive: new THREE.Color().setHSL(hue, 1.0, 0.25),
+                emissiveIntensity: 1.2 + r.energy * 0.8 + chatEnergy * 0.5
               });
               g.add(new THREE.Mesh(tg, tubeMat));
             } catch (e) { /* curve degenerate */ }
@@ -385,20 +446,39 @@
       requestAnimationFrame(animate);
       time++;
 
+      // Decay chat energy over time
+      chatEnergy *= 0.995;
+      chatPulseScale += (1 - chatPulseScale) * 0.02;
+
       // Camera
       animateCamera(camera, time);
 
-      // Mirrors + crystal
+      // Mirrors + crystal - apply chat pulse to crystal scale
       animateMirrors(mirrorData, time, renderer, scene);
+      mirrorData.crystal.scale.setScalar(
+        (1 + Math.sin(time * 0.008) * 0.12) * chatPulseScale
+      );
+      // Shift inner crystal emissive based on chat
+      mirrorData.innerCrystals.forEach((c, i) => {
+        if (c.material.emissive) {
+          c.material.emissive.setHSL(
+            (i / 5 + chatHueShift + time * 0.0001) % 1,
+            1.0,
+            0.2 + chatEnergy * 0.3
+          );
+          c.material.emissiveIntensity = 1.5 + chatEnergy * 2;
+        }
+      });
 
-      // Lights
+      // Lights - boost intensity with chat energy
       animateLights(lights, time);
+      lights.forEach(l => { l.intensity += chatEnergy * 1.5; });
 
       // Geometry every 2 frames
       if (time % 2 === 0) updateGeometries(time);
 
-      // Particles
-      animateParticles(particleData, time);
+      // Particles - speed up on chat energy
+      animateParticles(particleData, time, chatEnergy);
 
       // Mouse velocity
       mouseVelocity = Math.sqrt((mouseX - lastMouseX) ** 2 + (mouseY - lastMouseY) ** 2);

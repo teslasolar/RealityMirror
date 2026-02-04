@@ -159,6 +159,19 @@
     }
 
     boot();
+
+    // Cross-iframe message relay: when one tool posts a message,
+    // relay it to all other tool iframes
+    window.addEventListener('message', (e) => {
+      if (!e.data || !e.data.type) return;
+      const iframes = document.querySelectorAll('.tool-cell iframe');
+      iframes.forEach(iframe => {
+        // Don't send back to the source
+        if (iframe.contentWindow !== e.source) {
+          iframe.contentWindow.postMessage(e.data, '*');
+        }
+      });
+    });
   </script>
 </body>
 </html>

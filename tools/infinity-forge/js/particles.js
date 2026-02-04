@@ -20,7 +20,7 @@ export function createParticles(scene) {
     positions[i * 3 + 2] = Math.sin(angle) * r;
 
     const hue = Math.random();
-    const col = new THREE.Color().setHSL(hue, 0.7, 0.5 + Math.random() * 0.3);
+    const col = new THREE.Color().setHSL(hue, 0.85, 0.6 + Math.random() * 0.3);
     colors[i * 3] = col.r;
     colors[i * 3 + 1] = col.g;
     colors[i * 3 + 2] = col.b;
@@ -32,10 +32,10 @@ export function createParticles(scene) {
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const mat = new THREE.PointsMaterial({
-    size: 0.035,
+    size: 0.06,
     vertexColors: true,
     transparent: true,
-    opacity: 0.65,
+    opacity: 0.8,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true
@@ -65,10 +65,10 @@ export function createParticles(scene) {
   dustGeo.setAttribute('color', new THREE.BufferAttribute(dustCol, 3));
 
   const dustMat = new THREE.PointsMaterial({
-    size: 0.015,
+    size: 0.025,
     vertexColors: true,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.45,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   });
@@ -79,19 +79,20 @@ export function createParticles(scene) {
   return { particles, dust, count, dustCount };
 }
 
-export function animateParticles(particleData, time) {
+export function animateParticles(particleData, time, chatEnergy = 0) {
   const { particles, dust, count, dustCount } = particleData;
+  const boost = 1 + chatEnergy * 3;
 
   // Main particles - swirl upward
   const pos = particles.geometry.attributes.position.array;
   for (let i = 0; i < count; i++) {
-    const speed = 0.008 + Math.sin(i * 0.1) * 0.004;
+    const speed = (0.008 + Math.sin(i * 0.1) * 0.004) * boost;
     pos[i * 3 + 1] += Math.sin(time * 0.008 + i * 0.02) * speed;
 
-    // Gentle radial oscillation
+    // Radial oscillation - faster with chat energy
     const angle = Math.atan2(pos[i * 3 + 2], pos[i * 3]);
     const r = Math.sqrt(pos[i * 3] ** 2 + pos[i * 3 + 2] ** 2);
-    const newAngle = angle + 0.0003;
+    const newAngle = angle + 0.0003 * boost;
     pos[i * 3] = Math.cos(newAngle) * r;
     pos[i * 3 + 2] = Math.sin(newAngle) * r;
 

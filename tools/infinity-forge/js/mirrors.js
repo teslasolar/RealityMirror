@@ -85,8 +85,8 @@ export function createMirrors(scene) {
       thickness: 0.5,
       envMap: cubeRT.texture,
       clearcoat: 1,
-      emissive: new THREE.Color().setHSL(i / 5, 0.9, 0.15),
-      emissiveIntensity: 0.8
+      emissive: new THREE.Color().setHSL(i / 5, 1.0, 0.3),
+      emissiveIntensity: 1.5
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(Math.cos(a) * 3, 0, Math.sin(a) * 3);

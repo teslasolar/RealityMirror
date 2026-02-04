@@ -244,6 +244,18 @@
       { role: 'reality', text: 'Mmm "blocking" is like... such a harsh word. It\'s more like... resting in the backlog, y\'know?' },
     ];
 
+    // Broadcast chat events to sibling iframes via parent relay
+    function broadcastChat(role, text) {
+      try {
+        window.parent.postMessage({
+          type: 'chat-event',
+          role: role,
+          text: text,
+          timestamp: Date.now()
+        }, '*');
+      } catch (e) { /* sandboxed */ }
+    }
+
     function addPanel(role, text) {
       const panel = document.createElement('div');
       panel.className = `panel ${role}`;
@@ -258,6 +270,10 @@
       `;
       comic.appendChild(panel);
       comic.scrollTop = comic.scrollHeight;
+
+      // Broadcast to forge
+      broadcastChat(role, text);
+
       return panel;
     }
 
